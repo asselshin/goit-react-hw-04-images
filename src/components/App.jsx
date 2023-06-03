@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, {useState, useEffect } from 'react';
 
 import { fetchData } from 'api';
 import Searchbar from './Searchbar/Searchbar';
@@ -7,92 +7,73 @@ import Button from './Button/Button';
 import Loader from './Loader/Loader';
 import Modal from './Modal/Modal';
 
-class App extends Component {
-  state = {
-    searchInput: '',
-    images: [],
-    page: 1,
-    loading: false,
-    error: null,
-    showBtn: false,
-    showModal: false,
-    modalImg: '',
-    modalAlt: '',
-  };
+export default function App() {
+  const [searchInput, setSearchInput] = useState('');
+  const [images, setImages] = useState([]);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [showBtn, setShowBtn] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalImg, setModalImg] = useState('');
+  const [modalAlt, setModalAlt] = useState('');
 
-  async componentDidUpdate(prevProps, prevState) {
-    if (
-      prevState.searchInput !== this.state.searchInput ||
-      prevState.page !== this.state.page
-    ) {
+  useEffect(() => {
+    if (searchInput === '') {
+      return;
+    }
+    async function fetchImage() {
       try {
-        this.setState({ loading: true });
-
-        const fetchedSearch = await fetchData(
-          this.state.searchInput,
-          this.state.page
-        );
-
-        this.setState(prevState => ({
-          images: [...prevState.images, ...fetchedSearch.hits],
-          showBtn: this.state.page < Math.ceil(fetchedSearch.totalHits / 12),
-        }));
-
+        setLoading(true);
+        const fetchedSearch = await fetchData(searchInput, page);
+        setImages(prevState => [...prevState, ...fetchedSearch.hits]);        
+        setShowBtn(page < Math.ceil(fetchedSearch.totalHits / 12));        
       } catch (error) {
-        this.setState({ error: 'Something wrong' });
-      
+        setError('Something wrong');      
       } finally {
-        this.setState({ loading: false });
+        setLoading(false);
       }
     }
-  }
+    fetchImage();
+  }, [page, searchInput]);
 
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-    }));
+
+  const toggleModal = () => {
+    setShowModal(prevState => !prevState);
   };
 
-  formSubmitHandler = newSearchInput => {
-    this.setState({ ...newSearchInput, images: [], page: 1 });
+  const formSubmitHandler = newSearchInput => {
+    setSearchInput(newSearchInput);
+    setImages([]);
+    setPage(1);
+  };
+  
+  const handleLoadMore = () => {
+    setPage(prevPage => prevPage + 1);
   };
 
-  handleLoadMore = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  const handleImgClick = (imgUrl, alt) => {
+    setModalImg(imgUrl);
+    setModalAlt(alt);
+    setShowModal(true);
   };
 
-  handleImgClick = (imgUrl, alt) => {
-    this.setState({
-      modalImg: imgUrl,
-      modalAlt: alt,
-      showModal: true,
-    });
-  };
-
-  render() {
-    const { loading, error, images, showBtn, showModal, modalImg, modalAlt } =
-      this.state;
-    return (
+  return (
       <div className="App">
-        <Searchbar onSubmit={this.formSubmitHandler} />
+        <Searchbar onSubmit={formSubmitHandler} />
         {loading && <Loader />}
         {error && <div>{error}</div>}
         {images.length > 1 && (
-          <ImageGallery searchedArray={images} imgClick={this.handleImgClick} />
+          <ImageGallery searchedArray={images} imgClick={handleImgClick} />
         )}
-        {showBtn && <Button loadMore={() => this.handleLoadMore()} />}
+        {showBtn && <Button loadMore={() => handleLoadMore()} />}
         {showModal && (
           <Modal
-            onClose={this.toggleModal}
+            onClose={toggleModal}
             modalSrc={modalImg}
             modalAlt={modalAlt}
           />
         )}
       </div>
-    );
-  }
-}
-
-export default App;
+    );  
+};
